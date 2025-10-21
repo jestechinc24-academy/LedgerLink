@@ -228,9 +228,7 @@ export default function InventoryDashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Package className="w-8 h-8 text-blue-600" />
-              <h1 className="text-3xl font-bold text-gray-900">
-                Inventory Management
-              </h1>
+              <h1 className="text-3xl font-bold text-gray-900">LedgerLink</h1>
             </div>
             <button
               onClick={() => setShowModal(true)}
