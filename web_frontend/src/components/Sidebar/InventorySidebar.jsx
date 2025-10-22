@@ -1,9 +1,10 @@
-import { LayoutGrid, Package, Folder, Settings } from "lucide-react";
+import { LayoutGrid, Package, Folder, Settings, Users } from "lucide-react";
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: <LayoutGrid /> },
   { id: "products", label: "Products", icon: <Package /> },
   { id: "categories", label: "Categories", icon: <Folder /> },
+  { id: "users", label: "Users", icon: <Users /> },
   { id: "settings", label: "Settings", icon: <Settings /> },
 ];
 
