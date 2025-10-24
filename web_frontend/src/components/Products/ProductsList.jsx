@@ -1,72 +1,132 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal, Plus } from "lucide-react";
 import ProductCard from "./ProductCard";
 
 export default function ProductsList() {
-  const allProducts = [
-    {
-      id: 1,
-      name: "iPhone 15 Pro",
-      sku: "IPH15P-256-BLK",
-      category: "Smartphones",
-      price: 999.99,
-      stock: 45,
-      minStock: 20,
-      status: "in-stock",
-      updated: "10/22/2025",
-    },
-    {
-      id: 2,
-      name: "Samsung Galaxy S24",
-      sku: "SGS24-128-WHT",
-      category: "Smartphones",
-      price: 849.99,
-      stock: 12,
-      minStock: 15,
-      status: "low-stock",
-      updated: "10/22/2025",
-    },
-    {
-      id: 3,
-      name: "MacBook Air M3",
-      sku: "MBA-M3-13-SLV",
-      category: "Laptops",
-      price: 1299.99,
-      stock: 0,
-      minStock: 10,
-      status: "out-of-stock",
-      updated: "10/22/2025",
-    },
-    {
-      id: 4,
-      name: 'Dell Monitor 27"',
-      sku: "DEL-MON-27-4K",
-      category: "Electronics",
-      price: 349.99,
-      stock: 23,
-      minStock: 10,
-      status: "in-stock",
-      updated: "10/22/2025",
-    },
-    {
-      id: 5,
-      name: "Wireless Mouse",
-      sku: "WMS-001-BLK",
-      category: "Accessories",
-      price: 29.99,
-      stock: 8,
-      minStock: 15,
-      status: "low-stock",
-      updated: "10/22/2025",
-    },
-  ];
-
+  const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState("All");
+  const [showModal, setShowModal] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editProductId, setEditProductId] = useState(null);
 
-  const filteredProducts = allProducts.filter((p) => {
+  const [newProduct, setNewProduct] = useState({
+    name: "",
+    sku: "",
+    category: "",
+    price: "",
+    stock: "",
+    minStock: "",
+  });
+
+  const [categories, setCategories] = useState([]);
+  const [newCategory, setNewCategory] = useState("");
+
+  // Load localStorage
+  useEffect(() => {
+    const storedProducts = JSON.parse(localStorage.getItem("products")) || [];
+    const storedCategories =
+      JSON.parse(localStorage.getItem("categories")) || [];
+    setProducts(storedProducts);
+    setCategories(storedCategories);
+  }, []);
+
+  // Save to localStorage whenever changed
+  useEffect(() => {
+    localStorage.setItem("products", JSON.stringify(products));
+  }, [products]);
+
+  const getStatus = (stock, minStock) => {
+    if (stock <= 0) return "out-of-stock";
+    if (stock < minStock) return "low-stock";
+    return "in-stock";
+  };
+
+  const resetForm = () => {
+    setNewProduct({
+      name: "",
+      sku: "",
+      category: "",
+      price: "",
+      stock: "",
+      minStock: "",
+    });
+    setNewCategory("");
+    setEditMode(false);
+    setEditProductId(null);
+  };
+
+  const handleAddProduct = (e) => {
+    e.preventDefault();
+
+    let selectedCategory = newProduct.category;
+    if (newCategory && !categories.includes(newCategory)) {
+      const updatedCats = [...categories, newCategory];
+      setCategories(updatedCats);
+      localStorage.setItem("categories", JSON.stringify(updatedCats));
+      selectedCategory = newCategory;
+    }
+
+    const status = getStatus(
+      Number(newProduct.stock),
+      Number(newProduct.minStock)
+    );
+
+    if (editMode && editProductId) {
+      const updated = products.map((p) =>
+        p.id === editProductId
+          ? {
+              ...p,
+              ...newProduct,
+              category: selectedCategory,
+              status,
+              updated: new Date().toLocaleDateString(),
+            }
+          : p
+      );
+      setProducts(updated);
+    } else {
+      const newProd = {
+        id: Date.now(),
+        name: newProduct.name,
+        sku: newProduct.sku,
+        category: selectedCategory,
+        price: parseFloat(newProduct.price),
+        stock: Number(newProduct.stock),
+        minStock: Number(newProduct.minStock),
+        status,
+        updated: new Date().toLocaleDateString(),
+      };
+      setProducts([...products, newProd]);
+    }
+
+    resetForm();
+    setShowModal(false);
+  };
+
+  const handleDelete = (id) => {
+    const updated = products.filter((p) => p.id !== id);
+    setProducts(updated);
+    localStorage.setItem("products", JSON.stringify(updated));
+  };
+
+  const handleEdit = (product) => {
+    setEditMode(true);
+    setEditProductId(product.id);
+    setNewProduct({
+      name: product.name,
+      sku: product.sku,
+      category: product.category,
+      price: product.price,
+      stock: product.stock,
+      minStock: product.minStock,
+    });
+    setShowModal(true);
+  };
+
+  const filteredProducts = products.filter((p) => {
     const matchesSearch = p.name
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
@@ -90,8 +150,14 @@ export default function ProductsList() {
             Manage your product inventory
           </p>
         </div>
-        <button className="bg-[#0066FF] hover:bg-[#3385FF] text-white font-medium px-4 py-2 rounded-xl transition-colors duration-200">
-          + Add Product
+        <button
+          onClick={() => {
+            resetForm();
+            setShowModal(true);
+          }}
+          className="bg-[#0066FF] hover:bg-[#3385FF] text-white font-medium px-4 py-2 rounded-xl flex items-center gap-2 transition-colors duration-200"
+        >
+          <Plus size={16} /> Add Product
         </button>
       </div>
 
@@ -136,15 +202,124 @@ export default function ProductsList() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.2 }}
           >
-            <ProductCard product={product} />
+            <ProductCard
+              product={product}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
+            />
           </motion.div>
         ))}
       </motion.div>
 
-      {/* Footer */}
       <p className="text-sm text-gray-500 dark:text-gray-400 text-center pt-4">
-        Showing {filteredProducts.length} of {allProducts.length} products
+        Showing {filteredProducts.length} of {products.length} products
       </p>
+
+      {/* Add/Edit Product Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50 p-4">
+          <div className="bg-white dark:bg-[#1E1E1E] rounded-xl p-6 w-full max-w-md shadow-lg">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
+              {editMode ? "Edit Product" : "Add New Product"}
+            </h2>
+            <form onSubmit={handleAddProduct} className="space-y-4">
+              <input
+                type="text"
+                placeholder="Product Name"
+                value={newProduct.name}
+                onChange={(e) =>
+                  setNewProduct({ ...newProduct, name: e.target.value })
+                }
+                required
+                className="w-full border dark:border-gray-700 rounded-lg px-3 py-2 bg-transparent text-sm"
+              />
+              <input
+                type="text"
+                placeholder="SKU"
+                value={newProduct.sku}
+                onChange={(e) =>
+                  setNewProduct({ ...newProduct, sku: e.target.value })
+                }
+                required
+                className="w-full border dark:border-gray-700 rounded-lg px-3 py-2 bg-transparent text-sm"
+              />
+              <select
+                value={newProduct.category}
+                onChange={(e) =>
+                  setNewProduct({ ...newProduct, category: e.target.value })
+                }
+                className="w-full border dark:border-gray-700 rounded-lg px-3 py-2 bg-transparent text-sm"
+              >
+                <option value="">Select Category</option>
+                {categories.map((cat, i) => (
+                  <option key={i} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="text"
+                placeholder="Or add new category..."
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                className="w-full border dark:border-gray-700 rounded-lg px-3 py-2 bg-transparent text-sm"
+              />
+              <input
+                type="number"
+                placeholder="Price"
+                value={newProduct.price}
+                onChange={(e) =>
+                  setNewProduct({ ...newProduct, price: e.target.value })
+                }
+                required
+                className="w-full border dark:border-gray-700 rounded-lg px-3 py-2 bg-transparent text-sm"
+              />
+              <div className="flex gap-3">
+                <input
+                  type="number"
+                  placeholder="Stock Level"
+                  value={newProduct.stock}
+                  onChange={(e) =>
+                    setNewProduct({ ...newProduct, stock: e.target.value })
+                  }
+                  required
+                  className="w-1/2 border dark:border-gray-700 rounded-lg px-3 py-2 bg-transparent text-sm"
+                />
+                <input
+                  type="number"
+                  placeholder="Min Stock"
+                  value={newProduct.minStock}
+                  onChange={(e) =>
+                    setNewProduct({ ...newProduct, minStock: e.target.value })
+                  }
+                  required
+                  className="w-1/2 border dark:border-gray-700 rounded-lg px-3 py-2 bg-transparent text-sm"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetForm();
+                    setShowModal(false);
+                  }}
+                  className="px-4 py-2 text-sm rounded-lg border dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm rounded-lg bg-[#0066FF] hover:bg-[#3385FF] text-white"
+                >
+                  {editMode ? "Save Changes" : "Save Product"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

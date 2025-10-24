@@ -25,7 +25,16 @@ export default function DashboardPage() {
       case "settings":
         return <SettingsPage />;
       default:
-        return <Dashboard />;
+        return (
+          <div className="flex flex-col items-center justify-center h-full space-y-4">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+              Loading
+            </h1>
+            <p className="text-gray-500 dark:text-gray-400">
+              Feature coming soon
+            </p>
+          </div>
+        );
     }
   };
 
