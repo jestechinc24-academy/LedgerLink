@@ -1,8 +1,17 @@
 "use client";
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, SlidersHorizontal, Plus } from "lucide-react";
-import ProductCard from "./ProductCard";
+import {
+  Search,
+  SlidersHorizontal,
+  Plus,
+  Edit3,
+  Trash2,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+} from "lucide-react";
+import Notification from "../UI/Notification";
 
 export default function ProductsList() {
   const [products, setProducts] = useState([]);
@@ -11,6 +20,10 @@ export default function ProductsList() {
   const [showModal, setShowModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editProductId, setEditProductId] = useState(null);
+  const [notification, setNotification] = useState({
+    message: "",
+    type: "success",
+  });
 
   const [newProduct, setNewProduct] = useState({
     name: "",
@@ -24,7 +37,7 @@ export default function ProductsList() {
   const [categories, setCategories] = useState([]);
   const [newCategory, setNewCategory] = useState("");
 
-  // Load localStorage
+  // 🔹 Load from localStorage
   useEffect(() => {
     const storedProducts = JSON.parse(localStorage.getItem("products")) || [];
     const storedCategories =
@@ -33,9 +46,11 @@ export default function ProductsList() {
     setCategories(storedCategories);
   }, []);
 
-  // Save to localStorage whenever changed
+  // 🔹 Save products persistently
   useEffect(() => {
-    localStorage.setItem("products", JSON.stringify(products));
+    if (products.length > 0) {
+      localStorage.setItem("products", JSON.stringify(products));
+    }
   }, [products]);
 
   const getStatus = (stock, minStock) => {
@@ -58,6 +73,12 @@ export default function ProductsList() {
     setEditProductId(null);
   };
 
+  const showNotification = (msg, type = "success") => {
+    setNotification({ message: msg, type });
+    setTimeout(() => setNotification({ message: "", type: "" }), 3000);
+  };
+
+  // 🔹 Add or edit product
   const handleAddProduct = (e) => {
     e.preventDefault();
 
@@ -67,6 +88,7 @@ export default function ProductsList() {
       setCategories(updatedCats);
       localStorage.setItem("categories", JSON.stringify(updatedCats));
       selectedCategory = newCategory;
+      showNotification("✅ New category added successfully!", "info");
     }
 
     const status = getStatus(
@@ -87,6 +109,7 @@ export default function ProductsList() {
           : p
       );
       setProducts(updated);
+      showNotification("✏️ Product updated successfully!", "info");
     } else {
       const newProd = {
         id: Date.now(),
@@ -100,18 +123,22 @@ export default function ProductsList() {
         updated: new Date().toLocaleDateString(),
       };
       setProducts([...products, newProd]);
+      showNotification("✅ Product added successfully!", "success");
     }
 
     resetForm();
     setShowModal(false);
   };
 
+  // 🔹 Delete product
   const handleDelete = (id) => {
     const updated = products.filter((p) => p.id !== id);
     setProducts(updated);
     localStorage.setItem("products", JSON.stringify(updated));
+    showNotification("🗑️ Product deleted successfully!", "delete");
   };
 
+  // 🔹 Edit product
   const handleEdit = (product) => {
     setEditMode(true);
     setEditProductId(product.id);
@@ -126,6 +153,7 @@ export default function ProductsList() {
     setShowModal(true);
   };
 
+  // 🔹 Search & Filter
   const filteredProducts = products.filter((p) => {
     const matchesSearch = p.name
       .toLowerCase()
@@ -138,8 +166,44 @@ export default function ProductsList() {
     return matchesSearch && matchesFilter;
   });
 
+  // 🔹 Calculate total potential revenue
+  const totalRevenue = products
+    .reduce((sum, p) => sum + p.price * p.stock, 0)
+    .toFixed(2);
+
+  // 🔹 Calculate best and worst performing categories (mock logic)
+  const categorySales = categories.map((cat) => {
+    const items = products.filter((p) => p.category === cat);
+    const totalValue = items.reduce((sum, p) => sum + p.price * p.stock, 0);
+    return { category: cat, totalValue };
+  });
+
+  const topCategory =
+    categorySales.length > 0
+      ? categorySales.reduce((a, b) => (a.totalValue > b.totalValue ? a : b))
+      : null;
+
+  const lowCategory =
+    categorySales.length > 0
+      ? categorySales.reduce((a, b) => (a.totalValue < b.totalValue ? a : b))
+      : null;
+
+  // 🔹 Status icons
+  const statusIcon = {
+    "in-stock": <CheckCircle size={14} className="text-green-500" />,
+    "low-stock": <AlertTriangle size={14} className="text-yellow-500" />,
+    "out-of-stock": <XCircle size={14} className="text-red-500" />,
+  };
+
   return (
     <div className="p-6 space-y-6">
+      {/* ✅ Notification */}
+      <Notification
+        message={notification.message}
+        type={notification.type}
+        onClose={() => setNotification({ message: "", type: "" })}
+      />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div>
@@ -201,21 +265,74 @@ export default function ProductsList() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.2 }}
+            className="bg-white dark:bg-[#1E1E1E] rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:border-blue-500/40 hover:shadow-md transition-all duration-300"
           >
-            <ProductCard
-              product={product}
-              onDelete={handleDelete}
-              onEdit={handleEdit}
-            />
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex items-center gap-2">
+                {statusIcon[product.status]}
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {product.name}
+                </h3>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleEdit(product)}
+                  className="text-blue-500 hover:text-blue-600"
+                >
+                  <Edit3 size={16} />
+                </button>
+                <button
+                  onClick={() => handleDelete(product.id)}
+                  className="text-red-500 hover:text-red-600"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mb-1">SKU: {product.sku}</p>
+            <p className="text-sm text-gray-500 mb-3">
+              Category: <span className="font-medium">{product.category}</span>
+            </p>
+            <p className="text-sm text-gray-400 mb-2">
+              Price:{" "}
+              <span className="font-semibold text-gray-900 dark:text-gray-100">
+                ${product.price.toFixed(2)}
+              </span>
+            </p>
+            <div className="flex justify-between items-center mb-4">
+              <p className="text-xs text-gray-500">
+                Stock: <span className="font-medium">{product.stock}</span>
+              </p>
+              <p className="text-xs text-gray-500">Min: {product.minStock}</p>
+            </div>
+            <p className="text-xs text-gray-500 text-right">
+              Updated {product.updated}
+            </p>
           </motion.div>
         ))}
       </motion.div>
 
-      <p className="text-sm text-gray-500 dark:text-gray-400 text-center pt-4">
-        Showing {filteredProducts.length} of {products.length} products
-      </p>
+      {/* Summary Footer */}
+      <div className="pt-4 text-center space-y-2">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Showing {filteredProducts.length} of {products.length} products
+        </p>
+        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+          💰 Total Potential Revenue: ${totalRevenue}
+        </p>
+        {topCategory && (
+          <p className="text-xs text-green-500">
+            🔼 Best Selling Category: {topCategory.category}
+          </p>
+        )}
+        {lowCategory && (
+          <p className="text-xs text-red-400">
+            🔽 Least Performing Category: {lowCategory.category}
+          </p>
+        )}
+      </div>
 
-      {/* Add/Edit Product Modal */}
+      {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50 p-4">
           <div className="bg-white dark:bg-[#1E1E1E] rounded-xl p-6 w-full max-w-md shadow-lg">
@@ -257,7 +374,6 @@ export default function ProductsList() {
                   </option>
                 ))}
               </select>
-
               <input
                 type="text"
                 placeholder="Or add new category..."
@@ -297,7 +413,6 @@ export default function ProductsList() {
                   className="w-1/2 border dark:border-gray-700 rounded-lg px-3 py-2 bg-transparent text-sm"
                 />
               </div>
-
               <div className="flex justify-end gap-3 pt-3">
                 <button
                   type="button"
